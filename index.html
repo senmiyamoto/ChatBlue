@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Messenger</title>
+<style>
+  :root {
+    --blue-1: #5ea0ee; --blue-2: #2a68c4; --blue-dark: #1b4f9c;
+    --sky: #e4effc; --line: #b9cfec; --ink: #1d2b3f; --muted: #6b7c93;
+    --link: #1a55b0;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    font-family: Tahoma, Verdana, "Segoe UI", sans-serif;
+    font-size: 14px; color: var(--ink);
+    background: linear-gradient(160deg, #cfe2fa, #f2f7fd 55%, #d7e7fb);
+    display: flex; align-items: center; justify-content: center; padding: 12px;
+  }
+  .window {
+    width: 100%; max-width: 860px; height: 100%; max-height: 720px;
+    display: flex; flex-direction: column;
+    background: #fff; border: 1px solid var(--blue-dark); border-radius: 8px 8px 4px 4px;
+    box-shadow: 0 8px 28px rgba(27, 79, 156, .3); overflow: hidden;
+  }
+  .titlebar {
+    background: linear-gradient(#78b2f6, var(--blue-2));
+    color: #fff; padding: 7px 12px; font-weight: bold;
+    text-shadow: 0 1px 1px rgba(0,0,0,.35);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .titlebar small { font-weight: normal; opacity: .9; }
+  .body { flex: 1; display: grid; grid-template-columns: 220px 1fr; min-height: 0; }
+
+  /* Barra lateral */
+  aside { background: var(--sky); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .me { padding: 12px; display: flex; gap: 10px; align-items: center; border-bottom: 1px solid var(--line); background: linear-gradient(#f4f9ff, var(--sky)); }
+  .me .who { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  #meName { background: none; border: 0; padding: 0; font: inherit; font-weight: bold; color: var(--link); text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #status { font: inherit; font-size: 12.5px; border: 1px solid var(--line); border-radius: 3px; padding: 2px; background: #fff; max-width: 100%; }
+  aside h2 { margin: 0; padding: 8px 12px 4px; font-size: 12.5px; color: var(--muted); font-weight: bold; }
+  #users { list-style: none; margin: 0; padding: 0 6px 8px; overflow-y: auto; flex: 1; }
+  #users li { display: flex; align-items: center; gap: 8px; padding: 5px 6px; border-radius: 4px; }
+  #users li:hover { background: #fff; }
+  #users .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .av { width: 34px; height: 34px; flex: none; border: 1px solid var(--line); border-radius: 4px; background: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 22px; overflow: hidden; }
+  .av.sm { width: 28px; height: 28px; font-size: 18px; }
+  .av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  button.av { padding: 0; cursor: pointer; }
+  button.av:hover { border-color: var(--blue-2); }
+
+  /* Chat */
+  main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  #messages { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .empty { margin: auto; color: var(--muted); }
+  .row { display: flex; gap: 8px; align-items: flex-start; }
+  .row .txt { min-width: 0; }
+  .row .nm { color: var(--link); font-weight: bold; }
+  .row .nm span { font-weight: normal; color: var(--muted); }
+  .row .c { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; }
+  .row img.pic { display: block; margin-top: 4px; max-width: 100%; max-height: 260px; border: 1px solid var(--line); border-radius: 4px; cursor: zoom-in; }
+  .sys { color: var(--muted); font-style: italic; font-size: 13px; text-align: center; }
+
+  form { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--line); background: var(--sky); }
+  form input[type="text"] { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; font: inherit; }
+  form input[type="text"]:focus { outline: 2px solid var(--blue-2); outline-offset: 0; }
+  .btn { font: inherit; border: 1px solid var(--blue-dark); border-radius: 3px; padding: 0 12px; min-height: 36px; cursor: pointer; color: #fff; background: linear-gradient(#7ab5f7, var(--blue-2)); }
+  .btn.alt { color: var(--ink); border-color: #8fabd3; background: linear-gradient(#fff, #dbe7f7); }
+  .btn:hover { filter: brightness(1.06); }
+  .btn:focus-visible { outline: 2px solid #ffb400; outline-offset: 1px; }
+  .btn:disabled { opacity: .55; cursor: default; }
+
+  /* Avisos */
+  #toast { position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%); background: #1d2b3f; color: #fff; padding: 9px 14px; border-radius: 6px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s; max-width: 90vw; text-align: center; }
+  #toast.show { opacity: 1; }
+  #nudgeAlert { position: fixed; top: 18px; left: 50%; transform: translateX(-50%) scale(.9); background: #fff7d6; border: 2px solid #e0a800; color: #6b4b00; padding: 12px 22px; border-radius: 8px; font-weight: bold; font-size: 16px; box-shadow: 0 6px 20px rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .15s, transform .15s; z-index: 20; }
+  #nudgeAlert.show { opacity: 1; transform: translateX(-50%) scale(1); }
+
+  /* Zumbido */
+  @keyframes shake {
+    0%, 100% { transform: translate(0, 0) rotate(0); }
+    10% { transform: translate(-16px, 5px) rotate(-1.2deg); }
+    20% { transform: translate(14px, -6px) rotate(1deg); }
+    30% { transform: translate(-12px, -4px) rotate(-1deg); }
+    40% { transform: translate(12px, 6px) rotate(1.2deg); }
+    50% { transform: translate(-10px, 3px) rotate(-.8deg); }
+    60% { transform: translate(10px, -4px) rotate(.8deg); }
+    70% { transform: translate(-6px, 4px) rotate(-.5deg); }
+    80% { transform: translate(6px, -2px) rotate(.4deg); }
+    90% { transform: translate(-3px, 1px); }
+  }
+  .window.nudging { animation: shake .9s ease-in-out; }
+  @keyframes flash { 50% { background: #fff3c4; } }
+  @media (prefers-reduced-motion: reduce) {
+    .window.nudging { animation: flash .9s ease-in-out 1; }
+  }
+
+  /* Selector de avatar y visor */
+  dialog { border: 1px solid var(--blue-dark); border-radius: 8px; padding: 0; width: min(340px, 92vw); color: var(--ink); }
+  dialog::backdrop { background: rgba(20, 40, 80, .45); }
+  dialog .hd { background: linear-gradient(#78b2f6, var(--blue-2)); color: #fff; font-weight: bold; padding: 7px 12px; }
+  dialog .bd { padding: 12px; }
+  #emojiGrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 12px; }
+  #emojiGrid .av { width: 100%; height: 46px; font-size: 26px; }
+  dialog .acts { display: flex; gap: 8px; justify-content: space-between; }
+  #lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: none; align-items: center; justify-content: center; padding: 20px; cursor: zoom-out; z-index: 30; }
+  #lightbox.open { display: flex; }
+  #lightbox img { max-width: 100%; max-height: 100%; border-radius: 6px; }
+
+  @media (max-width: 680px) {
+    body { padding: 0; }
+    .window { max-height: none; border-radius: 0; }
+    .body { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+    aside { max-height: 38vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<div class="window" id="win">
+  <div class="titlebar"><span>Mi Messenger</span><small id="count">Conectando…</small></div>
+  <div class="body">
+    <aside>
+      <div class="me">
+        <button class="av" id="meAvatar" type="button" title="Cambiar avatar" aria-label="Cambiar avatar"></button>
+        <div class="who">
+          <button id="meName" type="button" title="Cambiar nombre"></button>
+          <select id="status" aria-label="Estado">
+            <option value="online">🟢 Disponible</option>
+            <option value="away">🟡 Ausente</option>
+            <option value="busy">🔴 Ocupado</option>
+          </select>
+        </div>
+      </div>
+      <h2 id="onlineTitle">En línea</h2>
+      <ul id="users"></ul>
+    </aside>
+
+    <main>
+      <div id="messages" aria-live="polite">
+        <p class="empty" id="empty">Aún no hay mensajes. Escribe el primero.</p>
+      </div>
+      <form id="form" autocomplete="off">
+        <button class="btn alt" id="imgBtn" type="button" title="Subir imagen o meme">Imagen</button>
+        <input type="file" id="file" accept="image/*" hidden>
+        <button class="btn alt" id="nudgeBtn" type="button" title="Enviar un zumbido">🔔 Zumbido</button>
+        <input type="text" id="text" placeholder="Escribe un mensaje" maxlength="1000" aria-label="Mensaje">
+        <button class="btn" id="sendBtn" type="submit">Enviar</button>
+      </form>
+    </main>
+  </div>
+</div>
+
+<dialog id="avatarDlg">
+  <div class="hd">Elige tu avatar</div>
+  <div class="bd">
+    <div id="emojiGrid"></div>
+    <div class="acts">
+      <button class="btn alt" id="avatarUpload" type="button">Subir foto</button>
+      <button class="btn" id="avatarClose" type="button">Cerrar</button>
+    </div>
+    <input type="file" id="avatarFile" accept="image/*" hidden>
+  </div>
+</dialog>
+
+<div id="toast" role="status"></div>
+<div id="nudgeAlert" role="alert"></div>
+<div id="lightbox"><img alt=""></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  // ====== CONFIGURACIÓN ======
+  const SUPABASE_URL = "https://TU-PROYECTO.supabase.co";
+  const SUPABASE_ANON_KEY = "TU-ANON-KEY";
+  const BUCKET = "memes";
+  const MAX_MB = 5;
+  const NUDGE_COOLDOWN_MS = 10000;
+  // Opcional: pon aquí URLs de audio (mp3/ogg) para reemplazar los sonidos sintetizados.
+  const SOUND_URLS = { message: "", online: "", nudge: "" };
+  // ===========================
+
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const $ = (id) => document.getElementById(id);
+  const STATUS = { online: "🟢", away: "🟡", busy: "🔴" };
+  const EMOJIS = ["🐱","🐶","🦊","🐼","🐸","🐵","🦄","🐙","👻","🤖","👽","💀","🌸","⭐","🔥","🍕","🎸","🎮","😎","🥷"];
+
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+  };
+
+  // ---------- Perfil ----------
+  const me = {
+    key: (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)),
+    name: store.get("chat_username"),
+    avatar: store.get("chat_avatar") || EMOJIS[Math.floor(Math.random() * EMOJIS.length)],
+    status: "online"
+  };
+  function askName() {
+    const n = (prompt("¿Cómo te llamas?", me.name || "") || "").trim().slice(0, 24);
+    if (n) { me.name = n; store.set("chat_username", n); }
+    if (!me.name) me.name = "Anónimo";
+    $("meName").textContent = me.name;
+    pushPresence();
+  }
+
+  function avatarEl(av, small) {
+    const s = document.createElement("span");
+    s.className = "av" + (small ? " sm" : "");
+    fill(s, av);
+    return s;
+  }
+  function fill(el, av) {
+    el.textContent = "";
+    if (av && /^https?:/.test(av)) {
+      const i = document.createElement("img");
+      i.src = av; i.alt = "";
+      el.appendChild(i);
+    } else {
+      el.textContent = av || "👤";
+    }
+  }
+
+  // ---------- Avisos ----------
+  let toastTimer;
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg; t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 3500);
+  }
+
+  // ---------- Sonidos ----------
+  let ctx = null;
+  function unlockAudio() {
+    try {
+      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === "suspended") ctx.resume();
+    } catch (e) {}
+  }
+  ["pointerdown", "keydown"].forEach((ev) => document.addEventListener(ev, unlockAudio));
+
+  function beep(freq, at, dur, type, vol) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type || "sine"; o.frequency.value = freq;
+    const t0 = ctx.currentTime + at;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol || 0.2, t0 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g).connect(ctx.destination);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  }
+  const SYNTH = {
+    message() { beep(880, 0, 0.12); beep(1175, 0.11, 0.2); },
+    online() { beep(523, 0, 0.12); beep(659, 0.11, 0.12); beep(784, 0.22, 0.12); beep(1047, 0.33, 0.25); },
+    nudge() { for (let i = 0; i < 8; i++) beep(i % 2 ? 140 : 190, i * 0.09, 0.08, "square", 0.12); }
+  };
+  function play(name) {
+    try {
+      if (SOUND_URLS[name]) { const a = new Audio(SOUND_URLS[name]); a.play().catch(() => {}); return; }
+      if (!ctx) return;
+      SYNTH[name]();
+    } catch (e) {}
+  }
+
+  // ---------- Mensajes ----------
+  const list = $("messages");
+  const seen = new Set();
+  const profiles = new Map(); // nombre -> avatar (desde presencia)
+  let emptyEl = $("empty");
+
+  function clearEmpty() { if (emptyEl) { emptyEl.remove(); emptyEl = null; } }
+
+  function render(m) {
+    if (seen.has(m.id)) return;
+    seen.add(m.id);
+    clearEmpty();
+
+    const row = document.createElement("div");
+    row.className = "row";
+    row.appendChild(avatarEl(m.avatar || profiles.get(m.username), true));
+
+    const txt = document.createElement("div");
+    txt.className = "txt";
+    const nm = document.createElement("div");
+    nm.className = "nm";
+    nm.textContent = m.username + " ";
+    const dice = document.createElement("span");
+    dice.textContent = "dice:";
+    nm.appendChild(dice);
+    txt.appendChild(nm);
+
+    if (m.content) {
+      const c = document.createElement("div");
+      c.className = "c";
+      c.textContent = m.content;
+      txt.appendChild(c);
+    }
+    if (m.image_url) {
+      const img = document.createElement("img");
+      img.className = "pic"; img.src = m.image_url; img.loading = "lazy";
+      img.alt = "Imagen enviada por " + m.username;
+      img.addEventListener("click", () => {
+        $("lightbox").querySelector("img").src = m.image_url;
+        $("lightbox").classList.add("open");
+      });
+      txt.appendChild(img);
+    }
+    row.appendChild(txt);
+    list.appendChild(row);
+    list.scrollTop = list.scrollHeight;
+  }
+  function sysLine(text) {
+    clearEmpty();
+    const p = document.createElement("div");
+    p.className = "sys"; p.textContent = text;
+    list.appendChild(p);
+    list.scrollTop = list.scrollHeight;
+  }
+  $("lightbox").addEventListener("click", () => $("lightbox").classList.remove("open"));
+
+  let loaded = false;
+  async function load() {
+    const { data, error } = await db.from("messages").select("*").order("created_at", { ascending: false }).limit(100);
+    if (error) return toast("No se pudo cargar el historial: " + error.message);
+    data.reverse().forEach(render);
+    loaded = true;
+  }
+
+  db.channel("chat-messages")
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (p) => {
+      render(p.new);
+      if (loaded && p.new.username !== me.name) play("message");
+    })
+    .subscribe();
+
+  let warnedAvatar = false;
+  async function insertMsg(row) {
+    let r = await db.from("messages").insert({ ...row, avatar: me.avatar });
+    if (r.error && /avatar/i.test(r.error.message || "")) {
+      r = await db.from("messages").insert(row);
+      if (!r.error && !warnedAvatar) {
+        warnedAvatar = true;
+        toast("Para guardar avatares en el historial, añade la columna avatar a messages.");
+      }
+    }
+    return r;
+  }
+
+  $("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const content = $("text").value.trim();
+    if (!content) return;
+    $("sendBtn").disabled = true;
+    const { error } = await insertMsg({ username: me.name, content });
+    $("sendBtn").disabled = false;
+    if (error) return toast("No se pudo enviar: " + error.message);
+    $("text").value = ""; $("text").focus();
+  });
+
+  async function uploadImage(file, folder) {
+    const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const path = (folder ? folder + "/" : "") + Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "." + ext;
+    const up = await db.storage.from(BUCKET).upload(path, file, { contentType: file.type });
+    if (up.error) throw up.error;
+    return db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+  }
+  function checkImage(file, maxMb) {
+    if (!file.type.startsWith("image/")) { toast("Solo se pueden subir imágenes."); return false; }
+    if (file.size > maxMb * 1024 * 1024) { toast("La imagen supera los " + maxMb + " MB."); return false; }
+    return true;
+  }
+
+  $("imgBtn").addEventListener("click", () => $("file").click());
+  $("file").addEventListener("change", async () => {
+    const file = $("file").files[0];
+    $("file").value = "";
+    if (!file || !checkImage(file, MAX_MB)) return;
+    $("imgBtn").disabled = true; $("imgBtn").textContent = "Subiendo…";
+    try {
+      const url = await uploadImage(file);
+      const r = await insertMsg({ username: me.name, image_url: url });
+      if (r.error) throw r.error;
+    } catch (err) {
+      toast("No se pudo subir la imagen: " + err.message);
+    } finally {
+      $("imgBtn").disabled = false; $("imgBtn").textContent = "Imagen";
+    }
+  });
+
+  // ---------- Presencia, estados y zumbido ----------
+  const room = db.channel("lobby", {
+    config: { presence: { key: me.key }, broadcast: { self: false } }
+  });
+  let subscribed = false, ready = false;
+
+  function pushPresence() {
+    $("meName").textContent = me.name || "";
+    fill($("meAvatar"), me.avatar);
+    if (subscribed) room.track({ name: me.name, avatar: me.avatar, status: me.status });
+  }
+
+  function renderUsers() {
+    const state = room.presenceState();
+    const users = [];
+    Object.keys(state).forEach((k) => { const p = state[k][0]; if (p) users.push({ key: k, ...p }); });
+    users.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+    profiles.clear();
+    const ul = $("users");
+    ul.textContent = "";
+    users.forEach((u) => {
+      profiles.set(u.name, u.avatar);
+      const li = document.createElement("li");
+      li.appendChild(avatarEl(u.avatar, true));
+      const n = document.createElement("span");
+      n.className = "name";
+      n.textContent = u.name + (u.key === me.key ? " (tú)" : "");
+      const st = document.createElement("span");
+      st.textContent = STATUS[u.status] || STATUS.online;
+      st.title = u.status;
+      li.append(n, st);
+      ul.appendChild(li);
+    });
+    $("onlineTitle").textContent = "En línea (" + users.length + ")";
+    $("count").textContent = users.length + (users.length === 1 ? " conectado" : " conectados");
+  }
+
+  room
+    .on("presence", { event: "sync" }, () => { renderUsers(); ready = true; })
+    .on("presence", { event: "join" }, ({ key }) => { if (ready && key !== me.key) play("online"); })
+    .on("broadcast", { event: "nudge" }, ({ payload }) => receiveNudge(payload.name))
+    .subscribe((status) => {
+      if (status === "SUBSCRIBED") { subscribed = true; pushPresence(); }
+    });
+
+  $("status").addEventListener("change", () => { me.status = $("status").value; pushPresence(); });
+
+  let lastNudge = 0, alertTimer;
+  $("nudgeBtn").addEventListener("click", () => {
+    const wait = NUDGE_COOLDOWN_MS - (Date.now() - lastNudge);
+    if (wait > 0) return toast("Espera " + Math.ceil(wait / 1000) + " s para enviar otro zumbido.");
+    if (!subscribed) return toast("Aún conectando, intenta de nuevo.");
+    lastNudge = Date.now();
+    room.send({ type: "broadcast", event: "nudge", payload: { name: me.name } });
+    sysLine("Has enviado un zumbido.");
+    play("nudge");
+    shake();
+  });
+
+  function shake() {
+    const w = $("win");
+    w.classList.remove("nudging");
+    void w.offsetWidth;
+    w.classList.add("nudging");
+    setTimeout(() => w.classList.remove("nudging"), 1000);
+  }
+  function receiveNudge(name) {
+    const who = String(name || "Alguien").slice(0, 24);
+    play("nudge");
+    shake();
+    const a = $("nudgeAlert");
+    a.textContent = "🔔 ¡" + who + " te ha enviado un zumbido!";
+    a.classList.add("show");
+    clearTimeout(alertTimer);
+    alertTimer = setTimeout(() => a.classList.remove("show"), 3000);
+    sysLine(who + " te ha enviado un zumbido.");
+  }
+
+  // ---------- Selector de avatar ----------
+  const dlg = $("avatarDlg");
+  EMOJIS.forEach((e) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "av"; b.textContent = e;
+    b.setAttribute("aria-label", "Avatar " + e);
+    b.addEventListener("click", () => setAvatar(e));
+    $("emojiGrid").appendChild(b);
+  });
+  function setAvatar(av) {
+    me.avatar = av; store.set("chat_avatar", av);
+    pushPresence();
+    dlg.close();
+  }
+  $("meAvatar").addEventListener("click", () => dlg.showModal());
+  $("avatarClose").addEventListener("click", () => dlg.close());
+  $("avatarUpload").addEventListener("click", () => $("avatarFile").click());
+  $("avatarFile").addEventListener("change", async () => {
+    const file = $("avatarFile").files[0];
+    $("avatarFile").value = "";
+    if (!file || !checkImage(file, 2)) return;
+    $("avatarUpload").disabled = true; $("avatarUpload").textContent = "Subiendo…";
+    try { setAvatar(await uploadImage(file, "avatars")); }
+    catch (err) { toast("No se pudo subir la foto: " + err.message); }
+    finally { $("avatarUpload").disabled = false; $("avatarUpload").textContent = "Subir foto"; }
+  });
+
+  $("meName").addEventListener("click", askName);
+
+  // ---------- Inicio ----------
+  if (!me.name) askName(); else pushPresence();
+  load();
+</script>
+</body>
+</html>
