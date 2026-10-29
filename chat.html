@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eceef1;
+    --panel: #ffffff;
+    --ink: #1c2430;
+    --muted: #7a8494;
+    --mine: #2f4bff;
+    --mine-ink: #ffffff;
+    --theirs: #e3e6eb;
+    --line: #d9dde3;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c;
+      --panel: #1b2027;
+      --ink: #e8ebf0;
+      --muted: #8b95a5;
+      --mine: #5b73ff;
+      --mine-ink: #ffffff;
+      --theirs: #262c35;
+      --line: #2c333d;
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Bricolage Grotesque", system-ui, sans-serif;
+    display: flex;
+    justify-content: center;
+  }
+  .app {
+    width: 100%;
+    max-width: 640px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--panel);
+  }
+  header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  header h1 { font-size: 1.05rem; font-weight: 600; margin: 0; }
+  header button {
+    background: none; border: 0; color: var(--muted);
+    font: inherit; font-size: .85rem; cursor: pointer;
+  }
+  header button:hover { color: var(--ink); }
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .empty { margin: auto; color: var(--muted); font-size: .95rem; }
+  .msg { max-width: 78%; display: flex; flex-direction: column; gap: 3px; }
+  .msg.mine { align-self: flex-end; align-items: flex-end; }
+  .who { font-size: .75rem; color: var(--muted); padding: 0 6px; }
+  .bubble {
+    background: var(--theirs);
+    padding: 9px 14px;
+    border-radius: 18px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+  .msg.mine .bubble { background: var(--mine); color: var(--mine-ink); }
+  .bubble.img { padding: 0; background: none; }
+  .bubble img {
+    display: block;
+    max-width: 100%;
+    max-height: 320px;
+    border-radius: 14px;
+    cursor: zoom-in;
+  }
+  form {
+    display: flex;
+    gap: 8px;
+    padding: 12px 14px calc(12px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--line);
+  }
+  form input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    background: var(--bg);
+    color: var(--ink);
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 11px 16px;
+    font: inherit;
+  }
+  form input[type="text"]:focus { outline: 2px solid var(--mine); outline-offset: 1px; }
+  .btn {
+    border: 0;
+    border-radius: 999px;
+    padding: 0 18px;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    min-height: 42px;
+  }
+  .btn:focus-visible { outline: 2px solid var(--mine); outline-offset: 2px; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.send { background: var(--mine); color: var(--mine-ink); }
+  .btn.img { background: var(--theirs); color: var(--ink); }
+  #toast {
+    position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%);
+    background: var(--ink); color: var(--panel);
+    padding: 9px 16px; border-radius: 10px; font-size: .88rem;
+    opacity: 0; pointer-events: none; transition: opacity .2s;
+  }
+  #toast.show { opacity: 1; }
+  #lightbox {
+    position: fixed; inset: 0; background: rgba(0,0,0,.85);
+    display: none; align-items: center; justify-content: center; padding: 20px;
+    cursor: zoom-out;
+  }
+  #lightbox.open { display: flex; }
+  #lightbox img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+  @media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Chat</h1>
+    <button id="rename" type="button"></button>
+  </header>
+
+  <div id="messages" aria-live="polite">
+    <p class="empty" id="empty">Aún no hay mensajes. Escribe el primero.</p>
+  </div>
+
+  <form id="form" autocomplete="off">
+    <button class="btn img" id="imgBtn" type="button" title="Subir imagen o meme">Imagen</button>
+    <input type="file" id="file" accept="image/*" hidden>
+    <input type="text" id="text" placeholder="Escribe un mensaje" maxlength="1000" aria-label="Mensaje">
+    <button class="btn send" id="sendBtn" type="submit">Enviar</button>
+  </form>
+</div>
+
+<div id="toast" role="status"></div>
+<div id="lightbox"><img alt=""></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+  // ====== CONFIGURA AQUÍ TU PROYECTO ======
+  const SUPABASE_URL = "https://TU-PROYECTO.supabase.co";
+  const SUPABASE_ANON_KEY = "TU-ANON-KEY";
+  const BUCKET = "memes";
+  const MAX_MB = 5;
+  // ========================================
+
+  const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const $ = (id) => document.getElementById(id);
+  const list = $("messages"), emptyEl = $("empty");
+  const seen = new Set();
+
+  // --- nombre de usuario ---
+  let username = null;
+  try { username = localStorage.getItem("chat_username"); } catch (e) {}
+  function askName() {
+    const n = (prompt("¿Cómo te llamas?", username || "") || "").trim().slice(0, 24);
+    if (n) {
+      username = n;
+      try { localStorage.setItem("chat_username", n); } catch (e) {}
+    }
+    if (!username) username = "Anónimo";
+    $("rename").textContent = username;
+  }
+  if (!username) askName(); else $("rename").textContent = username;
+  $("rename").addEventListener("click", askName);
+
+  // --- utilidades ---
+  let toastTimer;
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 3000);
+  }
+
+  function render(m) {
+    if (seen.has(m.id)) return;
+    seen.add(m.id);
+    if (emptyEl) emptyEl.remove();
+
+    const mine = m.username === username;
+    const wrap = document.createElement("div");
+    wrap.className = "msg" + (mine ? " mine" : "");
+
+    const who = document.createElement("span");
+    who.className = "who";
+    who.textContent = m.username;
+    wrap.appendChild(who);
+
+    if (m.content) {
+      const b = document.createElement("div");
+      b.className = "bubble";
+      b.textContent = m.content;
+      wrap.appendChild(b);
+    }
+    if (m.image_url) {
+      const b = document.createElement("div");
+      b.className = "bubble img";
+      const img = document.createElement("img");
+      img.src = m.image_url;
+      img.alt = "Imagen enviada por " + m.username;
+      img.loading = "lazy";
+      img.addEventListener("click", () => {
+        $("lightbox").querySelector("img").src = m.image_url;
+        $("lightbox").classList.add("open");
+      });
+      b.appendChild(img);
+      wrap.appendChild(b);
+    }
+    list.appendChild(wrap);
+    list.scrollTop = list.scrollHeight;
+  }
+  $("lightbox").addEventListener("click", () => $("lightbox").classList.remove("open"));
+
+  // --- cargar historial + tiempo real ---
+  async function load() {
+    const { data, error } = await db
+      .from("messages")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    if (error) return toast("No se pudo cargar el historial: " + error.message);
+    data.reverse().forEach(render);
+  }
+
+  db.channel("chat-messages")
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" },
+        (payload) => render(payload.new))
+    .subscribe();
+
+  load();
+
+  // --- enviar texto ---
+  $("form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const content = $("text").value.trim();
+    if (!content) return;
+    $("sendBtn").disabled = true;
+    const { error } = await db.from("messages").insert({ username, content });
+    $("sendBtn").disabled = false;
+    if (error) return toast("No se pudo enviar: " + error.message);
+    $("text").value = "";
+    $("text").focus();
+  });
+
+  // --- subir imagen ---
+  $("imgBtn").addEventListener("click", () => $("file").click());
+  $("file").addEventListener("change", async () => {
+    const file = $("file").files[0];
+    $("file").value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return toast("Solo se pueden subir imágenes.");
+    if (file.size > MAX_MB * 1024 * 1024) return toast("La imagen supera los " + MAX_MB + " MB.");
+
+    $("imgBtn").disabled = true;
+    $("imgBtn").textContent = "Subiendo…";
+    try {
+      const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const path = Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "." + ext;
+
+      const up = await db.storage.from(BUCKET).upload(path, file, { contentType: file.type });
+      if (up.error) throw up.error;
+
+      const { data } = db.storage.from(BUCKET).getPublicUrl(path);
+      const ins = await db.from("messages").insert({ username, image_url: data.publicUrl });
+      if (ins.error) throw ins.error;
+    } catch (err) {
+      toast("No se pudo subir la imagen: " + err.message);
+    } finally {
+      $("imgBtn").disabled = false;
+      $("imgBtn").textContent = "Imagen";
+    }
+  });
+</script>
+</body>
+</html>
