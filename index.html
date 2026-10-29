@@ -182,7 +182,7 @@
   const MAX_MB = 5;
   const NUDGE_COOLDOWN_MS = 10000;
   // Opcional: URLs de audio (mp3/ogg) para reemplazar los sonidos sintetizados.
-  const SOUND_URLS = { message: "https://qyvtlqvrocutpialslgg.supabase.co/storage/v1/object/public/Sounds/anta-baka.mp3", online: "https://qyvtlqvrocutpialslgg.supabase.co/storage/v1/object/public/Sounds/sao-log-in-screen2.mp3", nudge: "https://supabase.com/dashboard/project/qyvtlqvrocutpialslgg/storage/files/buckets/Sounds?preview=tsundere-baka-lol.mp3" };
+  const SOUND_URLS = { message: "https://qyvtlqvrocutpialslgg.supabase.co/storage/v1/object/public/Sounds/anta-baka.mp3", online: "https://qyvtlqvrocutpialslgg.supabase.co/storage/v1/object/public/Sounds/sao-log-in-screen2.mp3", nudge: "https://qyvtlqvrocutpialslgg.supabase.co/storage/v1/object/public/Sounds/tsundere-baka-lol.mp3" };
   // ===========================
 
   const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -249,7 +249,7 @@
   const SYNTH = {
     message() { beep(880, 0, 0.12); beep(1175, 0.11, 0.2); },
     online() { beep(523, 0, 0.12); beep(659, 0.11, 0.12); beep(784, 0.22, 0.12); beep(1047, 0.33, 0.25); },
-    nudge() { for (let i = 0; i < 8; i++) beep(i % 2 ? 140 : 190, i * 0.09, 0.08, "square", 0.12); }
+    nudge() { for (let i = 0; i < 30; i++) beep(i % 2 ? 140 : 190, i * 0.09, 0.08, "square", 0.12); }
   };
   function play(name) {
     try {
